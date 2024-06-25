@@ -1,0 +1,10 @@
+name: napari-trackpy-point-detection
+display_name: Trackpy Point Detection
+contributions:
+  commands:
+    - id: napari-trackpy-point-detection.pointdetection
+      python_name: napari_trackpy_point_detection.widget:PointDetection
+      title: Detect objects with Trackpy
+  widgets:
+    - command: napari-trackpy-point-detection.pointdetection
+      display_name: Detect objects with Trackpy

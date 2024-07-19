@@ -27,6 +27,7 @@ class PointDetection(QWidget):
 
         # initialize selection widget
         self.selection_widget = SelectionWidget(self.viewer)
+        self.selection_widget.points_updated.connect(self._update_measurements)
         self.selection_widget.setMaximumHeight(500)
 
         # initialize measurements widget
@@ -50,6 +51,9 @@ class PointDetection(QWidget):
         self.selection_widget._update_points_and_sliders(
             self.trackpy_widget.df, self.trackpy_widget.intensity_layer
         )
+
+    def _update_measurements(self):
+        """Updates the points layer in the measurements widget"""
 
         self.measurements_widget._update(
             self.selection_widget.points, self.trackpy_widget.df

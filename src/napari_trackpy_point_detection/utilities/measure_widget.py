@@ -82,6 +82,7 @@ class MeasureWidget(QWidget):
         self.dimensions.append("x")
 
         self._check_activation()
+        self.table_widget.set_content({})  # reset
 
     def _update_visibility(self) -> None:
         """Update visibility of points not in any region"""
@@ -206,7 +207,9 @@ class MeasureWidget(QWidget):
                 )
 
             data["region"] = point_labels
+            self.table_widget.set_content(data, self.regions.colormap)
+        else:
+            self.table_widget.set_content(data)
 
-        self.table_widget.set_content(data, self.regions.colormap)
         self._update_visibility()
         self.points.properties = data

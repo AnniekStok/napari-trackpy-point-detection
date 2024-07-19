@@ -1,4 +1,3 @@
-import numpy as np
 from qtpy import QtCore
 from qtpy.QtWidgets import (
     QHBoxLayout,
@@ -58,10 +57,19 @@ class PlaneSlider(QWidget):
         self.intensity_layer.plane.position = (plane_position, pos[1], pos[2])
 
         # only show points close to the plane position
-        to_show = np.zeros(self.points.data.shape[0], dtype=bool)
         to_show = (self.points.data[:, 0] >= (plane_position - 5)) & (
             self.points.data[:, 0] <= (plane_position + 5)
         )
+
+        # check whether to filter by region
+        if (
+            "region" in self.points.properties
+            and hasattr(self.points, "filter")
+            and self.points.filter
+        ):
+            regions_to_show = self.points.properties["region"] > 0
+            to_show = to_show * regions_to_show
+
         self.points.shown = to_show
 
     def _set_plane_mode(self):

@@ -7,7 +7,7 @@
 [![codecov](https://codecov.io/gh/AnniekStok/napari-trackpy-point-detection/branch/main/graph/badge.svg)](https://codecov.io/gh/AnniekStok/napari-trackpy-point-detection)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-trackpy-point-detection)](https://napari-hub.org/plugins/napari-trackpy-point-detection)
 
-A Napari plugin for detecting objects in 2D, 2D + time, 3D, and 3D + time, using the locate function from [TrackPy](https://pypi.org/project/trackpy/) and works best on objects that have a similar size and smooth intensity profile. Detected points can be filtered afterwards based on size and intensity. When detecting 3D objects in very crowded samples, the 3D 'Plane' view may make it easier to see the detected objects. 
+A Napari plugin for detecting objects in 2D, 2D + time, 3D, and 3D + time, using the locate function from [TrackPy](https://pypi.org/project/trackpy/) and works best on objects that have a similar size and smooth intensity profile. Detected points can be filtered afterwards based on size and intensity. When detecting 3D objects in very crowded samples, the 3D 'Plane' view may make it easier to see the detected objects. Point intensities on image layers can be measured and visualized in a napari-skimage-regionprops inspired table widget, optionally per region. 
 
 ----------------------------------
 
@@ -30,6 +30,10 @@ Choose an estimated diameter in xy (and optionally z) (this must be an odd integ
 
 #### Detection of 3D objects
 ![](instructions/trackpy_locate_3D.gif)
+
+### Measuring intensity at point detections, with optional regions derived from Shapes or Labels layers
+![](instructions/point_detection_measure_regions.gif)
+
 
 ## Contributing
 

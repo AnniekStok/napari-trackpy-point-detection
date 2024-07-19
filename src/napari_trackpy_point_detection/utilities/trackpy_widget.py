@@ -30,7 +30,6 @@ class TrackpyWidget(QWidget):
         self.viewer = viewer
 
         self.intensity_layer = None
-        self.points = None
         self.df = None
 
         self.use_z = False

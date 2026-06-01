@@ -3,7 +3,9 @@ import numpy as np
 import pandas as pd
 import trackpy
 from napari.layers import Image
-from PyQt5.QtCore import pyqtSignal
+from psygnal import Signal
+import warnings
+
 from qtpy.QtWidgets import (
     QCheckBox,
     QDoubleSpinBox,
@@ -23,7 +25,7 @@ from .layer_dropdown import LayerDropdown
 class TrackpyWidget(QWidget):
     """Widget for running detection with trackpy on an open image"""
 
-    points_detected = pyqtSignal()
+    points_detected = Signal()
 
     def __init__(self, viewer: napari.Viewer):
         super().__init__()
@@ -229,7 +231,18 @@ class TrackpyWidget(QWidget):
             msg.exec_()
             return
 
-        elif len(self.intensity_layer.data.shape) == 2:
+        # make sure that odd integers are used
+        value_xy = self.diameter_spinbox_xy.value()
+        if value_xy % 2 == 0:
+            self.diameter_spinbox_xy.setValue(value_xy + 1)
+            warnings.warn("Updated value to next odd integer", stacklevel=2)
+        value_z = self.diameter_spinbox_z.value()
+        if value_z % 2 == 0 and self.use_z:
+            self.diameter_spinbox_z.setValue(value_z + 1)
+            warnings.warn("Updated value to next odd integer", stacklevel=2)
+
+        if len(self.intensity_layer.data.shape) == 2:
+                      
             diameter = (
                 self.diameter_spinbox_xy.value(),
                 self.diameter_spinbox_xy.value(),
@@ -248,6 +261,7 @@ class TrackpyWidget(QWidget):
             )
 
         elif len(self.intensity_layer.data.shape) == 3 and self.use_z:
+
             diameter = (
                 self.diameter_spinbox_z.value(),
                 self.diameter_spinbox_xy.value(),

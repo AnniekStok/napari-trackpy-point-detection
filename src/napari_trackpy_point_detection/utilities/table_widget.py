@@ -1,7 +1,8 @@
 import pandas as pd
 from matplotlib.colors import to_rgb
 from napari.utils.colormaps.colormap import CyclicLabelColormap
-from PyQt5.QtCore import pyqtSignal
+from psygnal import Signal
+
 from qtpy.QtGui import QColor
 from qtpy.QtWidgets import (
     QFileDialog,
@@ -19,7 +20,7 @@ class TableWidget(QWidget):
     napari_skimage_regionprops inspired TableWidget displaying point data measurements.
     """
 
-    rowClicked = pyqtSignal(int)
+    rowClicked = Signal(int)
 
     def __init__(self, data: dict):
         super().__init__()

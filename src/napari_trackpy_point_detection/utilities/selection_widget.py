@@ -4,7 +4,8 @@ import os
 import napari
 import numpy as np
 import pandas as pd
-from PyQt5.QtCore import pyqtSignal
+from psygnal import Signal
+
 from qtpy.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -21,7 +22,7 @@ from .plane_slider import PlaneSlider
 class SelectionWidget(QWidget):
     """QWidget displaying range sliders for trackpy detection measurements to select objects"""
 
-    points_updated = pyqtSignal()
+    points_updated = Signal()
 
     def __init__(self, viewer):
         super().__init__()

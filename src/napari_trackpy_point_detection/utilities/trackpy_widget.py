@@ -18,9 +18,30 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
+from scipy.ndimage import gaussian_filter
 from .layer_dropdown import LayerDropdown
+import dask.array as da
 
+def downsample_and_blur(img: np.ndarray, factors: list[int], sigmas:list[int]) -> np.ndarray: 
+    """Bin and apply gaussian filter"""
+
+    if not all([f == 1 for f in factors]):
+        cropped_shape = tuple((s // factors[i]) * factors[i] for i, s in enumerate(img.shape))
+        slices = tuple(slice(0, s) for s in cropped_shape)
+        img = img[slices]
+
+        reshaped_shape = []
+        for i, s in enumerate(cropped_shape):
+            reshaped_shape.extend([s // factors[i], factors[i]])
+
+        reshaped = img.reshape(reshaped_shape)
+        print(reshaped.shape)
+        img = reshaped.mean(axis=tuple(range(1, len(reshaped_shape), 2)))
+    
+    if not all([s == 1 for s in sigmas]):
+        img = gaussian_filter(img, sigmas)
+    
+    return img
 
 class TrackpyWidget(QWidget):
     """Widget for running detection with trackpy on an open image"""
@@ -36,12 +57,18 @@ class TrackpyWidget(QWidget):
 
         self.use_z = False
 
-        settings_layout = QVBoxLayout()
-
         # Add a dropdown to select layer
         self.layer_dropdown = LayerDropdown(self.viewer, (Image))
         self.layer_dropdown.layer_changed.connect(self._update_layer)
-        settings_layout.addWidget(self.layer_dropdown)
+
+        # Ask use if there is a Z axis
+        self.z_dim_cb = QCheckBox("Use Z dimension?")
+        self.z_dim_cb.setToolTip(
+            "If disabled but your data is 3D, the third dimension will be interpreted as time and not as z"
+        )
+        self.z_dim_cb.setToolTipDuration(5000)
+        self.z_dim_cb.setChecked(False)
+        self.z_dim_cb.stateChanged.connect(self._toggle_z)
 
         # Add trackpy detection configuration.
         diameter_settings = QGroupBox("Object diameter (odd number)")
@@ -54,73 +81,71 @@ class TrackpyWidget(QWidget):
         self.diameter_spinbox_xy.setValue(9)
         self.diameter_spinbox_xy.setSingleStep(2)
 
+        xy_diameter_widget = QWidget()
         xy_label = QLabel("XY")
         xy_label.setMinimumWidth(50)
         xy_diameter_layout.addWidget(xy_label)
-
         xy_diameter_layout.addWidget(self.diameter_spinbox_xy)
-        diameter_settings_layout.addLayout(xy_diameter_layout)
+        xy_diameter_widget.setLayout(xy_diameter_layout)
 
-        z_diameter_layout = QHBoxLayout()
-        self.diameter_z_cb = QCheckBox("Use Z dimension?")
-        self.diameter_z_cb.setToolTip(
-            "If disabled but your data is 3D, the third dimension will be interpreted as time and not as z"
-        )
-        self.diameter_z_cb.setToolTipDuration(5000)
-        self.diameter_z_cb.stateChanged.connect(self._toggle_z)
+        diameter_settings_layout.addWidget(xy_diameter_widget)
 
+        # Z diameter (optional)
+        z_label = QLabel("Z")
+        z_label.setMinimumWidth(50)
+        
         self.diameter_spinbox_z = QSpinBox()
         self.diameter_spinbox_z.setMinimum(1)
         self.diameter_spinbox_z.setMaximum(501)
         self.diameter_spinbox_z.setValue(9)
-        self.diameter_spinbox_z.setEnabled(False)
         self.diameter_spinbox_z.setSingleStep(2)
-
-        z_label = QLabel("Z")
-        z_label.setMinimumWidth(50)
+        
+        z_diameter_layout = QHBoxLayout()
         z_diameter_layout.addWidget(z_label)
         z_diameter_layout.addWidget(self.diameter_spinbox_z)
 
-        diameter_settings_layout.addWidget(self.diameter_z_cb)
-        diameter_settings_layout.addLayout(z_diameter_layout)
-        diameter_settings.setLayout(diameter_settings_layout)
+        self.z_diameter_widget = QWidget()
+        self.z_diameter_widget.setLayout(z_diameter_layout)
 
+        # assemble widgets in layout
+        diameter_settings_layout.addWidget(self.z_diameter_widget)
+        diameter_settings.setLayout(diameter_settings_layout)
+      
         # settings for separation
         separation_settings = QGroupBox("Object separation")
         separation_settings_layout = QVBoxLayout()
 
-        xy_separation_layout = QHBoxLayout()
+        xy_label = QLabel("XY")
+        xy_label.setMinimumWidth(50)
+
         self.separation_spinbox_xy = QDoubleSpinBox()
         self.separation_spinbox_xy.setMaximum(500)
-        self.separation_spinbox_xy.setValue(9)
-
-        xy_label = QLabel("X")
-        xy_label.setMinimumWidth(50)
+        self.separation_spinbox_xy.setValue(9) 
+        
+        xy_separation_widget = QWidget()
+        xy_separation_layout = QHBoxLayout()
         xy_separation_layout.addWidget(xy_label)
-
         xy_separation_layout.addWidget(self.separation_spinbox_xy)
-        separation_settings_layout.addLayout(xy_separation_layout)
+        xy_separation_widget.setLayout(xy_separation_layout)
 
-        z_separation_layout = QHBoxLayout()
-        self.separation_z_cb = QCheckBox("Use Z dimension?")
-        self.separation_z_cb.setToolTip(
-            "If disabled but your data is 3D, the third dimension will be interpreted as time and not as z"
-        )
-        self.separation_z_cb.setToolTipDuration(5000)
-        self.separation_z_cb.stateChanged.connect(self._toggle_z)
-
+        separation_settings_layout.addWidget(xy_separation_widget)
+        
+        # Separation in Z (optional)
+        z_label = QLabel("Z")
+        z_label.setMinimumWidth(50)
+        
         self.separation_spinbox_z = QDoubleSpinBox()
         self.separation_spinbox_z.setMaximum(500)
         self.separation_spinbox_z.setValue(9)
-        self.separation_spinbox_z.setEnabled(False)
 
-        z_label = QLabel("Z")
-        z_label.setMinimumWidth(50)
+        self.z_separation_widget = QWidget()
+        z_separation_layout = QHBoxLayout()
         z_separation_layout.addWidget(z_label)
-        z_separation_layout.addWidget(self.separation_spinbox_z)
+        z_separation_layout.addWidget(self.separation_spinbox_z)       
+        self.z_separation_widget.setLayout(z_separation_layout)
 
-        separation_settings_layout.addWidget(self.separation_z_cb)
-        separation_settings_layout.addLayout(z_separation_layout)
+        # assemble widgets in layout)
+        separation_settings_layout.addWidget(self.z_separation_widget)
         separation_settings.setLayout(separation_settings_layout)
 
         # percentile settings
@@ -135,33 +160,106 @@ class TrackpyWidget(QWidget):
         percentile_settings_layout.addWidget(self.percentile_spinbox)
         percentile_settings.setLayout(percentile_settings_layout)
 
+        # Downsample and blur to speed up detections
+        downsample_settings = QGroupBox("Optional internal downsampling")
+        downsample_settings.setToolTip("Optionally, the data can be downscaled and/or a gaussian blur can be applied to speed up or improve the detection process. Downsampling occurs internally and detected points will be placed back in the original dimensions. A value of 1 will not downsample or apply a blur")
+        downsample_settings_layout = QVBoxLayout()
+        
+        downsample_label_xy = QLabel("Downsampling factor XY")
+        self.xy_downsample = QSpinBox()
+        self.xy_downsample.setMinimum(1)
+        self.xy_downsample.setMaximum(10)
+        self.xy_downsample.setValue(2)
+
+        downsample_xy_widget = QWidget()
+        downsample_xy_layout = QHBoxLayout()
+        downsample_xy_layout.addWidget(downsample_label_xy)
+        downsample_xy_layout.addWidget(self.xy_downsample)
+        downsample_xy_widget.setLayout(downsample_xy_layout)
+
+        downsample_label_z = QLabel("Downsampling factor Z")
+        self.z_downsample = QSpinBox()
+        self.z_downsample.setMinimum(1)
+        self.z_downsample.setMaximum(10)
+        self.z_downsample.setValue(1)
+
+        z_downsample_layout = QHBoxLayout()
+        z_downsample_layout.addWidget(downsample_label_z)
+        z_downsample_layout.addWidget(self.z_downsample)
+        self.z_downsample_widget = QWidget()
+        self.z_downsample_widget.setLayout(z_downsample_layout)
+
+        sigma_label_xy = QLabel("Sigma XY")
+        self.xy_sigma = QSpinBox()
+        self.xy_sigma.setMinimum(1)
+        self.xy_sigma.setMaximum(10)
+        self.xy_sigma.setValue(2)
+
+        sigma_xy_widget = QWidget()
+        sigma_xy_layout = QHBoxLayout()
+        sigma_xy_layout.addWidget(sigma_label_xy)
+        sigma_xy_layout.addWidget(self.xy_sigma)
+        sigma_xy_widget.setLayout(sigma_xy_layout)
+        
+        sigma_label_z = QLabel("Sigma Z")
+        self.z_sigma = QSpinBox()
+        self.z_sigma.setMinimum(1)
+        self.z_sigma.setMaximum(10)
+        self.z_sigma.setValue(1)
+
+        z_sigma_layout = QHBoxLayout()
+        z_sigma_layout.addWidget(sigma_label_z)
+        z_sigma_layout.addWidget(self.z_sigma)
+        self.z_sigma_widget = QWidget()
+        self.z_sigma_widget.setLayout(z_sigma_layout)
+
+        downsample_settings_layout.addWidget(downsample_xy_widget)
+        downsample_settings_layout.addWidget(self.z_downsample_widget)
+        downsample_settings_layout.addWidget(sigma_xy_widget)
+        downsample_settings_layout.addWidget(self.z_sigma_widget)
+
+        downsample_settings.setLayout(downsample_settings_layout)
+
         # button to start detecting
         self.detect_trackpy_btn = QPushButton("Detect objects")
         self.detect_trackpy_btn.clicked.connect(self._run)
         self.detect_trackpy_btn.setEnabled(False)
 
         # combine all settings
+        settings_layout = QVBoxLayout()
+        settings_layout.addWidget(self.layer_dropdown)
+        settings_layout.addWidget(self.z_dim_cb)
         settings_layout.addWidget(diameter_settings)
         settings_layout.addWidget(separation_settings)
         settings_layout.addWidget(percentile_settings)
+        settings_layout.addWidget(downsample_settings)
         settings_layout.addWidget(self.detect_trackpy_btn)
 
         self.setLayout(settings_layout)
+        self._toggle_z(False)
 
     def _toggle_z(self, state: bool) -> None:
         """Toggle between enabling/disabling the use of the z dimension for object detecction"""
 
         if state:
-            self.diameter_z_cb.setChecked(True)
-            self.separation_z_cb.setChecked(True)
-            self.diameter_spinbox_z.setEnabled(True)
-            self.separation_spinbox_z.setEnabled(True)
+            self.z_diameter_widget.setEnabled(True)
+            self.z_diameter_widget.setVisible(True)
+            self.z_separation_widget.setVisible(True)
+            self.z_separation_widget.setEnabled(True)
+            self.z_downsample_widget.setVisible(True)
+            self.z_downsample_widget.setEnabled(True)
+            self.z_sigma_widget.setVisible(True)
+            self.z_sigma_widget.setEnabled(True)
             self.use_z = True
         else:
-            self.diameter_z_cb.setChecked(False)
-            self.separation_z_cb.setChecked(False)
-            self.diameter_spinbox_z.setEnabled(False)
-            self.separation_spinbox_z.setEnabled(False)
+            self.z_diameter_widget.setEnabled(False)
+            self.z_diameter_widget.setVisible(False)
+            self.z_separation_widget.setVisible(False)
+            self.z_separation_widget.setEnabled(False)
+            self.z_downsample_widget.setVisible(False)
+            self.z_downsample_widget.setEnabled(False)
+            self.z_sigma_widget.setVisible(False)
+            self.z_sigma_widget.setEnabled(False)
             self.use_z = False
 
     def _update_layer(self, selected_layer) -> None:
@@ -187,22 +285,12 @@ class TrackpyWidget(QWidget):
             shape = self.intensity_layer.data.shape
             if len(shape) == 2:  # 2D, force deactivate the z dimension
                 self.use_z = False
-                self.diameter_z_cb.setChecked(False)
-                self.diameter_z_cb.setEnabled(False)
-                self.separation_z_cb.setChecked(False)
-                self.separation_z_cb.setEnabled(False)
-                self.diameter_spinbox_z.setEnabled(False)
-                self.separation_spinbox_z.setEnabled(False)
+                self.z_dim_cb.setEnabled(False)
             elif len(shape) == 4:  # 3D + time, force activate the z dimension
-                self.diameter_z_cb.setChecked(True)
-                self.diameter_z_cb.setEnabled(False)
-                self.separation_z_cb.setChecked(True)
-                self.separation_z_cb.setEnabled(False)
-                self.diameter_spinbox_z.setEnabled(True)
-                self.separation_spinbox_z.setEnabled(True)
+                self.z_dim_cb.setChecked(True)
+                self.z_dim_cb.setEnabled(False)
             else:  # user has to decide whether this is 2D + time or 3D xyz
-                self.diameter_z_cb.setEnabled(True)
-                self.separation_z_cb.setEnabled(True)
+                self.z_dim_cb.setEnabled(True)
 
     def _run(self) -> None:
         """Run detection"""
@@ -241,97 +329,64 @@ class TrackpyWidget(QWidget):
             self.diameter_spinbox_z.setValue(value_z + 1)
             warnings.warn("Updated value to next odd integer", stacklevel=2)
 
-        if len(self.intensity_layer.data.shape) == 2:
-                      
-            diameter = (
-                self.diameter_spinbox_xy.value(),
-                self.diameter_spinbox_xy.value(),
-            )
+        xy_downsample = self.xy_downsample.value()
+        z_downsample = self.z_downsample.value()
+        xy_diameter = int(self.diameter_spinbox_xy.value() / xy_downsample) | 1
+        z_diameter = int(self.diameter_spinbox_z.value() / z_downsample) | 1
+        xy_separation = self.separation_spinbox_xy.value() / xy_downsample
+        z_separation = self.separation_spinbox_z.value() / z_downsample
+        xy_sigma = self.xy_sigma.value()
+        z_sigma = self.z_sigma.value()
+        percentile=self.percentile_spinbox.value()
 
-            separation = (
-                self.separation_spinbox_xy.value(),
-                self.separation_spinbox_xy.value(),
-            )
+        img = self.intensity_layer.data
 
+        diameter = [xy_diameter, xy_diameter]
+        separation = [xy_separation, xy_separation]
+        downsample = [xy_downsample, xy_downsample]
+        sigmas = [xy_sigma, xy_sigma]
+        if self.use_z: 
+            diameter.insert(0, z_diameter)
+            separation.insert(0, z_separation)
+            downsample.insert(0, z_downsample)
+            sigmas.insert(0, z_sigma)
+
+        # single image
+        if img.ndim == 2 or (img.ndim == 3 and self.use_z): 
+            img = downsample_and_blur(img, downsample, sigmas)
             d = trackpy.locate(
-                self.intensity_layer.data,
+                img,
                 diameter=diameter,
                 separation=separation,
-                percentile=self.percentile_spinbox.value(),
+                percentile=percentile
             )
 
-        elif len(self.intensity_layer.data.shape) == 3 and self.use_z:
-
-            diameter = (
-                self.diameter_spinbox_z.value(),
-                self.diameter_spinbox_xy.value(),
-                self.diameter_spinbox_xy.value(),
-            )
-
-            separation = (
-                self.separation_spinbox_z.value(),
-                self.separation_spinbox_xy.value(),
-                self.separation_spinbox_xy.value(),
-            )
-
-            d = trackpy.locate(
-                self.intensity_layer.data,
-                diameter=diameter,
-                separation=separation,
-                percentile=self.percentile_spinbox.value(),
-            )
-
-        elif len(self.intensity_layer.data.shape) == 3 and not self.use_z:
-            # interprete the third dimension as time in this case
-            diameter = (
-                self.diameter_spinbox_xy.value(),
-                self.diameter_spinbox_xy.value(),
-            )
-
-            separation = (
-                self.separation_spinbox_xy.value(),
-                self.separation_spinbox_xy.value(),
-            )
-
+        # looping over the first dimensions
+        else:
             d = []
-            for t in range(self.intensity_layer.data.shape[0]):
-                df = trackpy.locate(
-                    self.intensity_layer.data[t],
+            for t in range(img.shape[0]):
+                if isinstance(img, da.core.Array):
+                    img_t = img[t].compute()
+                else:
+                    img_t = img[t]
+                
+                img_t = downsample_and_blur(img_t, downsample, sigmas)
+                d_t = trackpy.locate(
+                    img_t,
                     diameter=diameter,
                     separation=separation,
-                    percentile=self.percentile_spinbox.value(),
-                )
-                df["t"] = t
-                d.append(df)
-
-            d = pd.concat(d, ignore_index=True)
-
-        elif len(self.intensity_layer.data.shape) == 4:
-            diameter = (
-                self.diameter_spinbox_z.value(),
-                self.diameter_spinbox_xy.value(),
-                self.diameter_spinbox_xy.value(),
-            )
-
-            separation = (
-                self.separation_spinbox_z.value(),
-                self.separation_spinbox_xy.value(),
-                self.separation_spinbox_xy.value(),
-            )
-
-            d = []
-
-            for t in range(self.intensity_layer.data.shape[0]):
-                df = trackpy.locate(
-                    self.intensity_layer.data[t],
-                    diameter=diameter,
-                    separation=separation,
-                    percentile=self.percentile_spinbox.value(),
-                )
-                df["t"] = t
-                d.append(df)
-            d = pd.concat(d, ignore_index=True)
+                    percentile=percentile
+                )     
+                d_t["t"] = t
+                d.append(d_t)
+            d = pd.concat(d, ignore_index=True)   
 
         d = d.round(3)
+        d['x'] = d['x'] * downsample[-1]
+        d['y'] = d['y'] * downsample[-2]
+        if self.use_z:
+            d['z'] = d['z'] * downsample[-3]
 
         return d
+
+

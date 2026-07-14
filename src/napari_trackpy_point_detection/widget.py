@@ -22,7 +22,7 @@ class PointDetection(QWidget):
 
         # initialize trackpy widget
         self.trackpy_widget = TrackpyWidget(self.viewer)
-        self.trackpy_widget.setMaximumHeight(600)
+        self.trackpy_widget.setMaximumHeight(900)
         self.trackpy_widget.points_detected.connect(self._update_points)
 
         # initialize selection widget

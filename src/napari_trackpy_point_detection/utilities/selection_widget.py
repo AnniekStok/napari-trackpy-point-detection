@@ -56,7 +56,6 @@ class SelectionWidget(QWidget):
         """Initializes the points layer based on the detection dataframe, and the sliders for filtering"""
 
         self.df = df
-        self.df['ID'] = self.df.index
         self.filtered_df = df
         self.intensity_layer = intensity_layer
 

@@ -37,7 +37,6 @@ def downsample_and_blur(img: np.ndarray, factors: list[int], sigmas:list[int]) -
             reshaped_shape.extend([s // factors[i], factors[i]])
 
         reshaped = img.reshape(reshaped_shape)
-        print(reshaped.shape)
         img = reshaped.mean(axis=tuple(range(1, len(reshaped_shape), 2)))
     
     if not all([s == 1 for s in sigmas]):

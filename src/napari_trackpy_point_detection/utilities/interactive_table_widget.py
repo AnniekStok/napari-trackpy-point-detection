@@ -313,12 +313,9 @@ class InteractiveTableWidget(QWidget):
         if "t" in props:
             props["t"] = self._layer.data[:, 0]
 
-        # Ensure ID exists and always equals the row index
-        props["ID"] = np.arange(len(self._layer.data))
+        coord_keys = {"x", "y", "z", "t"}
 
-        coord_keys = {"x", "y", "z", "t", "ID"}
-
-        # Set non-coordinate, non-ID properties to NaN for affected points only
+        # Set non-coordinate, properties to NaN for affected points only
         for key, values in props.items():
             if key not in coord_keys:
                 # Convert integer arrays to float so they can hold NaN
@@ -393,15 +390,12 @@ class InteractiveTableWidget(QWidget):
     def _update_selection(self, event=None):
         """Select the corresponding table rows when points are selected in napari."""
 
-        # Prevent recursion if this update was triggered by our own code
         if self._updating_selection:
             return
 
         self._updating_selection = True
         try:
             selected_points = copy.deepcopy(self._layer.selected_data)
-
-            # Block table selection signals while we update it
             with QSignalBlocker(self._table_widget.selectionModel()):
                 self._table_widget.clearSelection()
                 self._select_rows(selected_points)
@@ -409,28 +403,7 @@ class InteractiveTableWidget(QWidget):
         finally:
             self._updating_selection = False
 
-
-    def _on_table_selection_changed(self):
-        """Update napari point selection when the table selection changes."""
-
-        if self._updating_selection:
-            return
-
-        self._updating_selection = True
-        try:
-            selected_rows = {
-                index.row() for index in self._table_widget.selectedIndexes()
-            }
-
-            # Block the napari selection event while we update it
-            with self._layer.events.selected_data.blocker():
-                self._layer.selected_data = selected_rows
-
-        finally:
-            self._updating_selection = False
-    
-
-    def _select_rows(self, rows) -> None:
+    def _select_rows(self, rows: list[int]) -> None:
         """Select exactly the given rows in the table."""
 
         selection_model = self._table_widget.selectionModel()
@@ -442,7 +415,7 @@ class InteractiveTableWidget(QWidget):
             index = model.index(row, 0)
             selection.select(index, index)
 
-        # Block table selection signals while updating programmatically
+        # Block table selection signals while updating 
         with QSignalBlocker(selection_model):
             selection_model.clearSelection()
             selection_model.select(
@@ -456,60 +429,6 @@ class InteractiveTableWidget(QWidget):
             self._table_widget.scrollTo(
                 model.index(sorted(rows)[0], 0)
             )
-
-    def _select_row(self, row: int, append: bool, scroll: bool=True) -> None:
-        """Select a row visually in the table.
-        Args:
-            row (int): the to be selected row.
-            append (bool): whether to append to the selection, or start a new selection.
-        """
-
-        if row is None:
-            return
-
-        model = self._table_widget.model()
-        index = model.index(row, 0)
-
-        selection_model = self._table_widget.selectionModel()
-
-        if append:
-            # Add row to existing selection (Ctrl/Meta click)
-            selection_model.select(
-                index,
-                QItemSelectionModel.SelectionFlag.Select
-                | QItemSelectionModel.SelectionFlag.Rows,
-            )
-        else:
-            # Clear existing selection and select row (normal single selection)
-            selection_model.clearSelection()
-            selection_model.select(
-                index,
-                QItemSelectionModel.SelectionFlag.Select
-                | QItemSelectionModel.SelectionFlag.Rows,
-            )
-
-        # Ensure the row is visible
-        if scroll:
-            self._table_widget.scrollToItem(self._table_widget.item(row, 0))
-
-    def _find_row(self, **conditions) -> int | None:
-        """
-        Find the first row matching the given conditions (e.g. label=12, time_point=5)
-        Returns: row index or None
-        """
-
-        n_rows = self._table_widget.rowCount()
-
-        for row in range(n_rows):
-            # Only check conditions that are not None
-            if all(
-                float(self._layer.properties[col][row]) == float(val)
-                for col, val in conditions.items()
-                if val is not None
-            ):
-                return row
-
-        return None
 
     def _delete_points(self) -> None:
         """Delete selected points and store enough information for one-step undo."""

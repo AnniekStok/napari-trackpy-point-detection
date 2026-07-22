@@ -12,6 +12,7 @@ from qtpy.QtCore import (
     Qt,
     QTimer,
     QItemSelection,
+    QSignalBlocker
 )
 from qtpy.QtGui import QColor, QPen
 from qtpy.QtWidgets import (
@@ -30,12 +31,6 @@ from qtpy.QtWidgets import (
 )
 
 import copy
-
-from qtpy.QtCore import QSignalBlocker
-import copy
-from qtpy.QtCore import QItemSelection, QItemSelectionModel, QSignalBlocker
-
-
 
 class NoSelectionHighlightDelegate(QStyledItemDelegate):
     """Prevents Qt from painting the default selection background,
@@ -130,6 +125,7 @@ class InteractiveTableWidget(QWidget):
         self.special_selection = []
         self._updating_selection = False
         self._deleting_points = False
+        self._selection_connected = False
 
         self._set_data()
 
@@ -222,10 +218,12 @@ class InteractiveTableWidget(QWidget):
 
             if self._sync_table_with_layer not in self._layer.events.data.callbacks:
                 self._layer.events.data.connect(self._sync_table_with_layer)
-            if self._update_selection not in self._layer.selected_data.events.items_changed.callbacks:
+
+            if not self._selection_connected:
                 self._layer.selected_data.events.items_changed.connect(
                     self._update_selection
-                )
+            )
+            self._selection_connected = True
 
     def _selection_changed(self, _selected, _deselected):
         rows = [

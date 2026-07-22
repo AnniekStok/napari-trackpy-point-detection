@@ -21,6 +21,8 @@ from qtpy.QtWidgets import (
 from scipy.ndimage import gaussian_filter
 from .layer_dropdown import LayerDropdown
 import dask.array as da
+from napari_trackpy_point_detection.utilities.selection_widget import SelectionWidget
+
 
 def downsample_and_blur(img: np.ndarray, factors: list[int], sigmas:list[int]) -> np.ndarray: 
     """Bin and apply gaussian filter"""
@@ -78,7 +80,7 @@ class TrackpyWidget(QWidget):
         self.diameter_spinbox_xy = QSpinBox()
         self.diameter_spinbox_xy.setMinimum(1)
         self.diameter_spinbox_xy.setMaximum(501)
-        self.diameter_spinbox_xy.setValue(9)
+        self.diameter_spinbox_xy.setValue(31)
         self.diameter_spinbox_xy.setSingleStep(2)
 
         xy_diameter_widget = QWidget()
@@ -120,7 +122,7 @@ class TrackpyWidget(QWidget):
 
         self.separation_spinbox_xy = QDoubleSpinBox()
         self.separation_spinbox_xy.setMaximum(500)
-        self.separation_spinbox_xy.setValue(9) 
+        self.separation_spinbox_xy.setValue(32) 
         
         xy_separation_widget = QWidget()
         xy_separation_layout = QHBoxLayout()
@@ -169,7 +171,7 @@ class TrackpyWidget(QWidget):
         self.xy_downsample = QSpinBox()
         self.xy_downsample.setMinimum(1)
         self.xy_downsample.setMaximum(10)
-        self.xy_downsample.setValue(2)
+        self.xy_downsample.setValue(4)
 
         downsample_xy_widget = QWidget()
         downsample_xy_layout = QHBoxLayout()
@@ -181,7 +183,7 @@ class TrackpyWidget(QWidget):
         self.z_downsample = QSpinBox()
         self.z_downsample.setMinimum(1)
         self.z_downsample.setMaximum(10)
-        self.z_downsample.setValue(1)
+        self.z_downsample.setValue(2)
 
         z_downsample_layout = QHBoxLayout()
         z_downsample_layout.addWidget(downsample_label_z)
@@ -236,6 +238,7 @@ class TrackpyWidget(QWidget):
         settings_layout.addWidget(self.detect_trackpy_btn)
 
         self.setLayout(settings_layout)
+        self.setMaximumHeight(1100)
         self._toggle_z(False)
 
     def _toggle_z(self, state: bool) -> None:
@@ -297,6 +300,9 @@ class TrackpyWidget(QWidget):
 
         self.df = self._detect()
         self.points_detected.emit()
+        if self.viewer.dims.ndim > 2:
+            self.viewer.dims.ndisplay = 3
+        
 
     def _detect(self) -> pd.DataFrame:
         """Load the image data, and run trackpy.locate to detect objects"""

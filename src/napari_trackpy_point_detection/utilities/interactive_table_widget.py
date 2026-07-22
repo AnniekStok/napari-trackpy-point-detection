@@ -100,7 +100,7 @@ class CustomTableWidget(QTableWidget):
         if index.isValid():
             control = bool(event.modifiers() & Qt.ControlModifier)
             right = event.button() == Qt.RightButton
-            self.parent()._clicked_table(
+            self.parent()._center_point(
                 right=right, ctrl=control, index=index
             )
 
@@ -288,7 +288,6 @@ class InteractiveTableWidget(QWidget):
             return
     
         if event.action == "removed":
-            # Rebuild everything after deletion so IDs match indices
             self._set_data()
             return
 
@@ -297,7 +296,6 @@ class InteractiveTableWidget(QWidget):
 
         indices = list(event.data_indices)
 
-        # Make writable copies of all properties
         props = {
             key: np.array(values, copy=True)
             for key, values in self._layer.properties.items()
@@ -329,7 +327,7 @@ class InteractiveTableWidget(QWidget):
         self._layer.properties = props
         self._set_data()
 
-    def _clicked_table(
+    def _center_point(
         self, right: bool, ctrl: bool, index: QModelIndex
     ) -> None:
         """Center the viewer to clicked row. 
@@ -469,14 +467,19 @@ class InteractiveTableWidget(QWidget):
 
         self._deleting_points = True
         # Reinsert points in ascending row order
+        rows_to_select = []
         for info in sorted(self._undo_info, key=lambda x: x["row"]):
             data = np.insert(data, info["row"], info["point"], axis=0)
+            rows_to_select.append(info['row'])
 
         self._layer.data = data
 
         # Rebuild the table from the restored layer data
         self._set_data()
 
+        # Select the restored data
+        self._layer.selected_data = rows_to_select
+        
         self._deleting_points = False
 
         self._undo_info = None

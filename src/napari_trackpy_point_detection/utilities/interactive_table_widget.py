@@ -122,7 +122,6 @@ class InteractiveTableWidget(QWidget):
         self._table_widget.selectionModel().selectionChanged.connect(
             self._selection_changed
         )
-        self.special_selection = []
         self._updating_selection = False
         self._deleting_points = False
         self._selection_connected = False
@@ -390,17 +389,6 @@ class InteractiveTableWidget(QWidget):
                 # labels layer is scaled by the layer.scale attribute
                 location[x_dim],
             )
-
-        label = self._layer.properties["ID"][row]
-        if right:
-            if not ctrl:
-                self.special_selection = [label]
-            else:
-                self.special_selection.append(label)
-            self._table_widget.clearSelection()
-        else:
-            self.special_selection = []
-
 
     def _update_selection(self, event=None):
         """Select the corresponding table rows when points are selected in napari."""

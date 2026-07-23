@@ -30,6 +30,9 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
+from napari.utils.events import Event
+from napari.layers import Points
+
 import copy
 
 class NoSelectionHighlightDelegate(QStyledItemDelegate):
@@ -118,6 +121,8 @@ class InteractiveTableWidget(QWidget):
 
         self._layer = layer
         self._viewer = viewer
+        self.df = pd.DataFrame()
+        self.undo_df = pd.DataFrame()
         self._table_widget = CustomTableWidget()
         self._table_widget.selectionModel().selectionChanged.connect(
             self._selection_changed
@@ -237,42 +242,27 @@ class InteractiveTableWidget(QWidget):
         if self._layer is None:
             return
 
-        props = self._layer.properties
-
-        # Update coordinate properties
-        props["x"] = self._layer.data[:, -1]
-        props["y"] = self._layer.data[:, -2]
-
-        if "z" in props:
-            props["z"] = self._layer.data[:, -3]
-
-        if "t" in props:
-            props["t"] = self._layer.data[:, 0]
-
-        # Create dataframe for optional sorting
-        df = pd.DataFrame(props)
-
         if column_index is not None:
-            selected_column = df.columns[column_index]
-            df = df.sort_values(
+            selected_column = self.df.columns[column_index]
+            self.df = self.df.sort_values(
                 by=selected_column,
                 ascending=self.ascending,
-                ignore_index=True,
+                ignore_index=False,
             )
 
         self._table_widget.clear()
 
-        n_rows, n_cols = df.shape
+        n_rows, n_cols = self.df.shape
 
         self._table_widget.setRowCount(n_rows)
         self._table_widget.setColumnCount(n_cols)
 
-        for col_idx, column in enumerate(df.columns):
+        for col_idx, column in enumerate(self.df.columns):
             self._table_widget.setHorizontalHeaderItem(
                 col_idx, QTableWidgetItem(column)
             )
 
-            for row_idx, value in enumerate(df[column]):
+            for row_idx, value in enumerate(self.df[column]):
                 item = QTableWidgetItem(str(value))
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                 self._table_widget.setItem(row_idx, col_idx, item)
@@ -284,48 +274,64 @@ class InteractiveTableWidget(QWidget):
     def _sync_table_with_layer(self, event):
         """Synchronize the table when points are added, changed, or removed."""
 
-        if self._deleting_points:
+        if self._deleting_points or event.action not in {"removed", "added", "changed"}:
             return
     
         if event.action == "removed":
-            self._set_data()
-            return
+            indices = list(event.data_indices)
+            self.df = self.df.drop(index = indices)
+            self.df = self.df.reset_index(drop = True)
+            to_select = []
 
-        if event.action not in {"added", "changed"}:
-            return
+        elif event.action == "added":
+            index = self.df.index.max() + 1
+            self.df.loc[index] = np.nan
+            if "z" in self.df.columns:
+                self.df.loc[index, "z"] = self._layer.data[index, -3]
+            if "t" in self.df.columns:
+                self.df.loc[index, "t"] = self._layer.data[index, 0]
+            self.df.loc[index, "y"] = self._layer.data[index, -2]
+            self.df.loc[index, "x"] = self._layer.data[index, -1]
+            to_select = [index]
 
-        indices = list(event.data_indices)
+        elif event.action == "changed":
+            indices = list(event.data_indices)
+            props = {
+                key: np.array(values, copy=True)
+                for key, values in self.df.items()
+            }
 
-        props = {
-            key: np.array(values, copy=True)
-            for key, values in self._layer.properties.items()
-        }
+            # Update coordinate columns from layer.data
+            props["x"] = self._layer.data[:, -1]
+            props["y"] = self._layer.data[:, -2]
 
-        # Update coordinate columns from layer.data
-        props["x"] = self._layer.data[:, -1]
-        props["y"] = self._layer.data[:, -2]
+            if "z" in props:
+                props["z"] = self._layer.data[:, -3]
 
-        if "z" in props:
-            props["z"] = self._layer.data[:, -3]
+            if "t" in props:
+                props["t"] = self._layer.data[:, 0]
 
-        if "t" in props:
-            props["t"] = self._layer.data[:, 0]
+            coord_keys = {"x", "y", "z", "t"}
 
-        coord_keys = {"x", "y", "z", "t"}
+            # Set non-coordinate, properties to NaN for affected points only
+            for key, values in props.items():
+                if key not in coord_keys:
+                    # Convert integer arrays to float so they can hold NaN
+                    if not np.issubdtype(values.dtype, np.floating):
+                        values = values.astype(float)
 
-        # Set non-coordinate, properties to NaN for affected points only
-        for key, values in props.items():
-            if key not in coord_keys:
-                # Convert integer arrays to float so they can hold NaN
-                if not np.issubdtype(values.dtype, np.floating):
-                    values = values.astype(float)
+                    values[indices] = np.nan
+                    props[key] = values
 
-                values[indices] = np.nan
-                props[key] = values
+            # Assign back to the layer and refresh the table
+            self.df = pd.DataFrame(props)
+            to_select = indices
 
-        # Assign back to the layer and refresh the table
-        self._layer.properties = props
         self._set_data()
+        self._layer.selected_data = to_select
+        self._undo_info = None
+        self.undo_button.setEnabled(False)
+
 
     def _center_point(
         self, right: bool, ctrl: bool, index: QModelIndex
@@ -339,21 +345,22 @@ class InteractiveTableWidget(QWidget):
             ctrl (bool): ctrl/meta key was used.
             index (QModelIndex): index of the clicked row
         """
+
         row = index.row()
-        spatial_columns = [c for c in ['z', 'y', 'x'] if c in self._layer.properties.keys()]
+        spatial_columns = [c for c in ['z', 'y', 'x'] if c in self.df.keys()]
        
         spatial_coords = [
-            self._layer.properties[col][row] for col in spatial_columns
+            self.df[col][row] for col in spatial_columns
         ]
 
         location = [c for c in spatial_coords]
 
         dims = ["Y", "X"]
-        if 'z' in self._layer.properties:
+        if 'z' in self.df:
             dims.insert(0, 'Z')
-        if 't' in self._layer.properties:
+        if 't' in self.df:
             dims.insert(0, 'T')
-            location.insert(0, int(self._layer.properties['t'][row]))
+            location.insert(0, int(self.df['t'][row]))
        
         self._viewer.dims.point = location
 
@@ -431,6 +438,7 @@ class InteractiveTableWidget(QWidget):
     def _delete_points(self) -> None:
         """Delete selected points and store enough information for one-step undo."""
 
+
         selected_rows = sorted(
             {index.row() for index in self._table_widget.selectedIndexes()}
         )
@@ -449,6 +457,11 @@ class InteractiveTableWidget(QWidget):
                 selected_rows,
                 axis=0,
             )
+
+            self.undo_df = copy.deepcopy(self.df)
+            self.df = self.df.drop(index = selected_rows)
+            self.df = self.df.reset_index(drop = True)
+
         finally:
             self._deleting_points = False
 
@@ -472,6 +485,7 @@ class InteractiveTableWidget(QWidget):
             data = np.insert(data, info["row"], info["point"], axis=0)
             rows_to_select.append(info['row'])
 
+        self.df = self.undo_df
         self._layer.data = data
 
         # Rebuild the table from the restored layer data
@@ -479,9 +493,9 @@ class InteractiveTableWidget(QWidget):
 
         # Select the restored data
         self._layer.selected_data = rows_to_select
-        
         self._deleting_points = False
 
+        # disable undo since the table is now altered by the layer
         self._undo_info = None
         self.undo_button.setEnabled(False)
 
@@ -501,9 +515,9 @@ class InteractiveTableWidget(QWidget):
         filename, _ = QFileDialog.getSaveFileName(
             self, "Save as csv", ".", "*.csv"
         )
-        pd.DataFrame(self._layer.properties).to_csv(filename)
+        pd.DataFrame(self.df).to_csv(filename)
 
     def _copy_table(self) -> None:
         """Copy table to clipboard"""
 
-        pd.DataFrame(self._layer.properties).to_clipboard()
+        pd.DataFrame(self.df).to_clipboard()

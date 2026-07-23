@@ -176,11 +176,9 @@ class SelectionWidget(QWidget):
                 data=coordinates,
                 face_color="cyan",
                 opacity=0.5,
-                properties = df
             )
         else:
             self.points.data = coordinates
-            self.points.properties = df
     
     def _confirm_points(self): 
         self.points.face_color = 'red'

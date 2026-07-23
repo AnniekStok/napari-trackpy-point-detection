@@ -30,9 +30,6 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from napari.utils.events import Event
-from napari.layers import Points
-
 import copy
 
 class NoSelectionHighlightDelegate(QStyledItemDelegate):

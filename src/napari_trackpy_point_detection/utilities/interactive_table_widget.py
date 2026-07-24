@@ -231,7 +231,14 @@ class InteractiveTableWidget(QWidget):
             index.row()
             for index in self._table_widget.selectionModel().selectedRows()
         ]
-        self._layer.selected_data = rows
+        # Guard so the resulting layer ``selected_data`` change does not bounce back into
+        # ``_update_selection`` (which clears + reselects the table). During a drag on the
+        # row index that clearing resets the drag anchor and undoes the range selection.
+        self._updating_selection = True
+        try:
+            self._layer.selected_data = rows
+        finally:
+            self._updating_selection = False
 
     def _set_data(self, column_index: int | None = None) -> None:
         """Set the content of the table from the layer's properties."""
@@ -390,8 +397,15 @@ class InteractiveTableWidget(QWidget):
             )
 
     def _update_selection(self, event=None):
-        """Select the corresponding table rows when points are selected in napari."""
+        """Update the border color of selected points, and select the corresponding table 
+        rows when points are selected in napari."""
 
+        self._layer.border_color = 'white'
+        selected = np.array(list(self._layer.selected_data))
+        if len(selected) > 0:
+            self._layer.border_color[selected] = (0, 1, 1,1)
+            self._layer.refresh()
+                    
         if self._updating_selection:
             return
 

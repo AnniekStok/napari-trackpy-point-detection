@@ -12,6 +12,7 @@ from .utilities.trackpy_widget import TrackpyWidget
 import copy
 
 from napari_trackpy_point_detection.utilities.interactive_table_widget import InteractiveTableWidget
+from .utilities.ortho_views import initialize_ortho_views
 
 class PointDetection(QWidget):
     """Main QWidget for point detection with Trackpy, visualization, and filtering"""
@@ -40,6 +41,9 @@ class PointDetection(QWidget):
         
         # Create an interactive table in separate widget to navigate confirmed points
         self.table_widget = InteractiveTableWidget(self.selection_widget.points, self.viewer)
+
+        # initialize ortho views
+        initialize_ortho_views(self.viewer)
 
         # Create a tab widget
         self.tab_widget = QTabWidget()

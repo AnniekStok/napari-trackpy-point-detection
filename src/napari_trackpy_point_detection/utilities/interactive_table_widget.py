@@ -352,9 +352,12 @@ class InteractiveTableWidget(QWidget):
 
         row = index.row()
         spatial_columns = [c for c in ['z', 'y', 'x'] if c in self.df.keys()]
-       
+
+        # Access by positional row (``.iloc``) rather than by index label: the table shows
+        # the dataframe in row order, which need not match the index labels (e.g. after a
+        # sort, or if the dataframe carries non-contiguous labels).
         spatial_coords = [
-            self.df[col][row] for col in spatial_columns
+            self.df[col].iloc[row] for col in spatial_columns
         ]
 
         location = [c for c in spatial_coords]
@@ -364,7 +367,7 @@ class InteractiveTableWidget(QWidget):
             dims.insert(0, 'Z')
         if 't' in self.df:
             dims.insert(0, 'T')
-            location.insert(0, int(self.df['t'][row]))
+            location.insert(0, int(self.df['t'].iloc[row]))
        
         self._viewer.dims.point = location
 
@@ -397,15 +400,9 @@ class InteractiveTableWidget(QWidget):
             )
 
     def _update_selection(self, event=None):
-        """Update the border color of selected points, and select the corresponding table 
+        """Select the corresponding table 
         rows when points are selected in napari."""
-
-        self._layer.border_color = 'white'
-        selected = np.array(list(self._layer.selected_data))
-        if len(selected) > 0:
-            self._layer.border_color[selected] = (0, 1, 1,1)
-            self._layer.refresh()
-                    
+                   
         if self._updating_selection:
             return
 

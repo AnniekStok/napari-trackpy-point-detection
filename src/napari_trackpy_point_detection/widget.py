@@ -79,7 +79,14 @@ class PointDetection(QWidget):
         """Accept this points layer and move on the to the second step where points can manually be edited"""
 
         self.table_widget._layer = self.selection_widget.points
-        self.table_widget.df = copy.deepcopy(self.selection_widget.filtered_df)
+        # The filtered dataframe keeps the original (non-contiguous) index labels from
+        # boolean masking, while the points layer is rebuilt with positional indices
+        # 0..k-1. Reset the index so the table rows, the dataframe and the layer points all
+        # line up positionally; otherwise label-based lookups (e.g. in _center_point) raise
+        # KeyError for the filtered-out indices.
+        self.table_widget.df = copy.deepcopy(
+            self.selection_widget.filtered_df
+        ).reset_index(drop=True)
         self.table_widget.refresh()
         self.tab_widget.setCurrentIndex(1)
 

@@ -1,5 +1,6 @@
 import napari
 from qtpy.QtWidgets import (
+    QGroupBox,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -11,6 +12,7 @@ from .utilities.selection_widget import SelectionWidget
 from .utilities.trackpy_widget import TrackpyWidget
 import copy
 
+from napari_plane_sliders import PlaneSliderWidget
 from napari_trackpy_point_detection.utilities.interactive_table_widget import InteractiveTableWidget
 from .utilities.ortho_views import initialize_ortho_views
 
@@ -40,7 +42,17 @@ class PointDetection(QWidget):
         tab1_widget.setLayout(tab1_widget_layout)
         
         # Create an interactive table in separate widget to navigate confirmed points
+        plane_slider_groupbox = QGroupBox("(Clipping) Plane Sliders")
+        plane_sliders = PlaneSliderWidget(self.viewer)
+        plane_slider_layout = QVBoxLayout()
+        plane_slider_layout.addWidget(plane_sliders)
+        plane_slider_groupbox.setLayout(plane_slider_layout)
         self.table_widget = InteractiveTableWidget(self.selection_widget.points, self.viewer)
+        tab2_widget_layout = QVBoxLayout()
+        tab2_widget_layout.addWidget(plane_slider_groupbox)
+        tab2_widget_layout.addWidget(self.table_widget)
+        tab2_widget = QWidget()
+        tab2_widget.setLayout(tab2_widget_layout)
 
         # initialize ortho views
         initialize_ortho_views(self.viewer)
@@ -48,7 +60,7 @@ class PointDetection(QWidget):
         # Create a tab widget
         self.tab_widget = QTabWidget()
         self.tab_widget.addTab(tab1_widget, "Trackpy Configuration")
-        self.tab_widget.addTab(self.table_widget, "View and edit points")
+        self.tab_widget.addTab(tab2_widget, "View and edit points")
         self.tab_widget.setCurrentIndex(0)
 
         # wrap in scroll area

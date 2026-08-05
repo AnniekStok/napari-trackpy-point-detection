@@ -176,6 +176,7 @@ class SelectionWidget(QWidget):
                 data=coordinates,
                 face_color="cyan",
                 opacity=0.5,
+                scale=self.intensity_layer.scale,
             )
         else:
             self.points.data = coordinates

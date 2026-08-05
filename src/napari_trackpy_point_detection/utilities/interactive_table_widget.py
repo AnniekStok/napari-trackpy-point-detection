@@ -1,3 +1,5 @@
+import warnings
+
 import dask.array as da
 import napari
 import numpy as np
@@ -350,6 +352,9 @@ class InteractiveTableWidget(QWidget):
             index (QModelIndex): index of the clicked row
         """
 
+        if self._layer is None:
+            return
+
         row = index.row()
         spatial_columns = [c for c in ['z', 'y', 'x'] if c in self.df.keys()]
 
@@ -362,42 +367,18 @@ class InteractiveTableWidget(QWidget):
 
         location = [c for c in spatial_coords]
 
-        dims = ["Y", "X"]
-        if 'z' in self.df:
-            dims.insert(0, 'Z')
         if 't' in self.df:
-            dims.insert(0, 'T')
             location.insert(0, int(self.df['t'].iloc[row]))
-       
-        self._viewer.dims.point = location
 
-        corner_coordinates = self._layer.corner_pixels
-        dims_displayed = self._viewer.dims.displayed
-    
-        # find corner pixels for the displayed axes
-        x_dim = dims_displayed[-1]
-        y_dim = dims_displayed[-2]
-        _min_x = corner_coordinates[0][x_dim]
-        _max_x = corner_coordinates[1][x_dim]
-        _min_y = corner_coordinates[0][y_dim]
-        _max_y = corner_coordinates[1][y_dim]
+        # ``self.df`` stores the point coordinates in layer (data) space, while
+        # ``dims.point`` and ``camera.center`` are expressed in world coordinates. 
+        world_location = self._layer.data_to_world(location)
 
-        # check whether the node location falls within the corner spatial range
-        if not (
-            (location[x_dim] > _min_x and location[x_dim] < _max_x)
-            and (location[y_dim] > _min_y and location[y_dim] < _max_y)
-        ):
-            camera_center = self._viewer.camera.center
-
-            # set the center y and x to the center of the node, by using the index
-            # of the currently displayed dimensions
-            self._viewer.camera.center = (
-                camera_center[0],
-                location[y_dim],
-                # camera center is calculated in scaled coordinates, and the optional
-                # labels layer is scaled by the layer.scale attribute
-                location[x_dim],
-            )
+        # Layer dimensions are right-aligned with the world dimensions, so only fill in
+        # the trailing axes and leave any leading viewer-only dimension untouched.
+        point = list(self._viewer.dims.point)
+        point[-len(world_location):] = world_location
+        self._viewer.dims.point = point
 
     def _update_selection(self, event=None):
         """Select the corresponding table 

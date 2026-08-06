@@ -380,6 +380,43 @@ class InteractiveTableWidget(QWidget):
         point[-len(world_location):] = world_location
         self._viewer.dims.point = point
 
+        # Center the main viewer and each orthogonal view on the point when it is out of
+        # view there.
+
+        corner_coordinates = self._layer.corner_pixels
+
+        # ``dims.displayed`` are world axes, while ``corner_pixels`` and ``data_location``
+        # are indexed by layer axes, which are right-aligned with the world axes.
+        offset = self._viewer.dims.ndim - self._layer.ndim
+        x_dim = self._viewer.dims.displayed[-1]
+        y_dim = self._viewer.dims.displayed[-2]
+
+        # find corner pixels for the displayed axes
+        _min_x = corner_coordinates[0][x_dim - offset]
+        _max_x = corner_coordinates[1][x_dim - offset]
+        _min_y = corner_coordinates[0][y_dim - offset]
+        _max_y = corner_coordinates[1][y_dim - offset]
+
+        # check whether the point falls within the corner spatial range
+        if not (
+            (
+                location[x_dim - offset] > _min_x
+                and location[x_dim - offset] < _max_x
+            )
+            and (
+                location[y_dim - offset] > _min_y
+                and location[y_dim - offset] < _max_y
+            )
+        ):
+            camera_center = list(self._viewer.camera.center)
+
+            # The camera center is in world coordinates and follows the displayed axes, so
+            # set its y and x to the point, by using the index of the currently displayed
+            # dimensions.
+            camera_center[-2] = point[y_dim]
+            camera_center[-1] = point[x_dim]
+            self._viewer.camera.center = tuple(camera_center)
+
     def _update_selection(self, event=None):
         """Select the corresponding table 
         rows when points are selected in napari."""

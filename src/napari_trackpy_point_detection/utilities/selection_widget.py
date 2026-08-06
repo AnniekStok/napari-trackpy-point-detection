@@ -1,22 +1,11 @@
-import copy
-import os
 
 import napari
-import numpy as np
 import pandas as pd
 from psygnal import Signal
-
-from qtpy.QtWidgets import (
-    QFileDialog,
-    QHBoxLayout,
-    QLineEdit,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
-    QGroupBox
-)
+from qtpy.QtWidgets import QGroupBox, QPushButton, QVBoxLayout, QWidget
 
 from .custom_range_slider_widget import CustomRangeSliderWidget
+
 
 class SelectionWidget(QWidget):
     """QWidget displaying range sliders for trackpy detection measurements to select objects"""
@@ -180,8 +169,8 @@ class SelectionWidget(QWidget):
             )
         else:
             self.points.data = coordinates
-    
-    def _confirm_points(self): 
+
+    def _confirm_points(self):
         self.points.face_color = 'red'
         self.points.out_of_slice_display = True
         self.points_updated.emit()

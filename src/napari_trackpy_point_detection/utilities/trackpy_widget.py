@@ -1,11 +1,12 @@
+import warnings
+
+import dask.array as da
 import napari
 import numpy as np
 import pandas as pd
 import trackpy
 from napari.layers import Image
 from psygnal import Signal
-import warnings
-
 from qtpy.QtWidgets import (
     QCheckBox,
     QDoubleSpinBox,
@@ -19,15 +20,14 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 from scipy.ndimage import gaussian_filter
+
 from .layer_dropdown import LayerDropdown
-import dask.array as da
-from napari_trackpy_point_detection.utilities.selection_widget import SelectionWidget
 
 
-def downsample_and_blur(img: np.ndarray, factors: list[int], sigmas:list[int]) -> np.ndarray: 
+def downsample_and_blur(img: np.ndarray, factors: list[int], sigmas:list[int]) -> np.ndarray:
     """Bin and apply gaussian filter"""
 
-    if not all([f == 1 for f in factors]):
+    if not all(f == 1 for f in factors):
         cropped_shape = tuple((s // factors[i]) * factors[i] for i, s in enumerate(img.shape))
         slices = tuple(slice(0, s) for s in cropped_shape)
         img = img[slices]
@@ -38,10 +38,10 @@ def downsample_and_blur(img: np.ndarray, factors: list[int], sigmas:list[int]) -
 
         reshaped = img.reshape(reshaped_shape)
         img = reshaped.mean(axis=tuple(range(1, len(reshaped_shape), 2)))
-    
-    if not all([s == 1 for s in sigmas]):
+
+    if not all(s == 1 for s in sigmas):
         img = gaussian_filter(img, sigmas)
-    
+
     return img
 
 class TrackpyWidget(QWidget):
@@ -94,13 +94,13 @@ class TrackpyWidget(QWidget):
         # Z diameter (optional)
         z_label = QLabel("Z")
         z_label.setMinimumWidth(50)
-        
+
         self.diameter_spinbox_z = QSpinBox()
         self.diameter_spinbox_z.setMinimum(1)
         self.diameter_spinbox_z.setMaximum(501)
         self.diameter_spinbox_z.setValue(9)
         self.diameter_spinbox_z.setSingleStep(2)
-        
+
         z_diameter_layout = QHBoxLayout()
         z_diameter_layout.addWidget(z_label)
         z_diameter_layout.addWidget(self.diameter_spinbox_z)
@@ -111,7 +111,7 @@ class TrackpyWidget(QWidget):
         # assemble widgets in layout
         diameter_settings_layout.addWidget(self.z_diameter_widget)
         diameter_settings.setLayout(diameter_settings_layout)
-      
+
         # settings for separation
         separation_settings = QGroupBox("Object separation")
         separation_settings_layout = QVBoxLayout()
@@ -121,8 +121,8 @@ class TrackpyWidget(QWidget):
 
         self.separation_spinbox_xy = QDoubleSpinBox()
         self.separation_spinbox_xy.setMaximum(500)
-        self.separation_spinbox_xy.setValue(32) 
-        
+        self.separation_spinbox_xy.setValue(32)
+
         xy_separation_widget = QWidget()
         xy_separation_layout = QHBoxLayout()
         xy_separation_layout.addWidget(xy_label)
@@ -130,11 +130,11 @@ class TrackpyWidget(QWidget):
         xy_separation_widget.setLayout(xy_separation_layout)
 
         separation_settings_layout.addWidget(xy_separation_widget)
-        
+
         # Separation in Z (optional)
         z_label = QLabel("Z")
         z_label.setMinimumWidth(50)
-        
+
         self.separation_spinbox_z = QDoubleSpinBox()
         self.separation_spinbox_z.setMaximum(500)
         self.separation_spinbox_z.setValue(9)
@@ -142,7 +142,7 @@ class TrackpyWidget(QWidget):
         self.z_separation_widget = QWidget()
         z_separation_layout = QHBoxLayout()
         z_separation_layout.addWidget(z_label)
-        z_separation_layout.addWidget(self.separation_spinbox_z)       
+        z_separation_layout.addWidget(self.separation_spinbox_z)
         self.z_separation_widget.setLayout(z_separation_layout)
 
         # assemble widgets in layout)
@@ -165,7 +165,7 @@ class TrackpyWidget(QWidget):
         downsample_settings = QGroupBox("Optional internal downsampling")
         downsample_settings.setToolTip("Optionally, the data can be downscaled and/or a gaussian blur can be applied to speed up or improve the detection process. Downsampling occurs internally and detected points will be placed back in the original dimensions. A value of 1 will not downsample or apply a blur")
         downsample_settings_layout = QVBoxLayout()
-        
+
         downsample_label_xy = QLabel("Downsampling factor XY")
         self.xy_downsample = QSpinBox()
         self.xy_downsample.setMinimum(1)
@@ -201,7 +201,7 @@ class TrackpyWidget(QWidget):
         sigma_xy_layout.addWidget(sigma_label_xy)
         sigma_xy_layout.addWidget(self.xy_sigma)
         sigma_xy_widget.setLayout(sigma_xy_layout)
-        
+
         sigma_label_z = QLabel("Sigma Z")
         self.z_sigma = QSpinBox()
         self.z_sigma.setMinimum(1)
@@ -301,7 +301,7 @@ class TrackpyWidget(QWidget):
         self.points_detected.emit()
         if self.viewer.dims.ndim > 2:
             self.viewer.dims.ndisplay = 3
-        
+
 
     def _detect(self) -> pd.DataFrame:
         """Load the image data, and run trackpy.locate to detect objects"""
@@ -350,14 +350,14 @@ class TrackpyWidget(QWidget):
         separation = [xy_separation, xy_separation]
         downsample = [xy_downsample, xy_downsample]
         sigmas = [xy_sigma, xy_sigma]
-        if self.use_z: 
+        if self.use_z:
             diameter.insert(0, z_diameter)
             separation.insert(0, z_separation)
             downsample.insert(0, z_downsample)
             sigmas.insert(0, z_sigma)
 
         # single image
-        if img.ndim == 2 or (img.ndim == 3 and self.use_z): 
+        if img.ndim == 2 or (img.ndim == 3 and self.use_z):
             img = downsample_and_blur(img, downsample, sigmas)
             d = trackpy.locate(
                 img,
@@ -374,17 +374,17 @@ class TrackpyWidget(QWidget):
                     img_t = img[t].compute()
                 else:
                     img_t = img[t]
-                
+
                 img_t = downsample_and_blur(img_t, downsample, sigmas)
                 d_t = trackpy.locate(
                     img_t,
                     diameter=diameter,
                     separation=separation,
                     percentile=percentile
-                )     
+                )
                 d_t["t"] = t
                 d.append(d_t)
-            d = pd.concat(d, ignore_index=True)   
+            d = pd.concat(d, ignore_index=True)
 
         d = d.round(3)
         d['x'] = d['x'] * downsample[-1]

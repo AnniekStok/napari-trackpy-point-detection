@@ -1,20 +1,24 @@
+import copy
+
 import napari
+from napari_plane_sliders import PlaneSliderWidget
 from qtpy.QtWidgets import (
     QGroupBox,
+    QScrollArea,
     QTabWidget,
     QVBoxLayout,
     QWidget,
-    QScrollArea,
+)
+
+from napari_trackpy_point_detection.utilities.interactive_table_widget import (
+    InteractiveTableWidget,
 )
 
 from .utilities.measure_widget import MeasureWidget
+from .utilities.ortho_views import initialize_ortho_views
 from .utilities.selection_widget import SelectionWidget
 from .utilities.trackpy_widget import TrackpyWidget
-import copy
 
-from napari_plane_sliders import PlaneSliderWidget
-from napari_trackpy_point_detection.utilities.interactive_table_widget import InteractiveTableWidget
-from .utilities.ortho_views import initialize_ortho_views
 
 class PointDetection(QWidget):
     """Main QWidget for point detection with Trackpy, visualization, and filtering"""
@@ -40,7 +44,7 @@ class PointDetection(QWidget):
         tab1_widget_layout.addWidget(self.trackpy_widget)
         tab1_widget_layout.addWidget(self.selection_widget)
         tab1_widget.setLayout(tab1_widget_layout)
-        
+
         # Create an interactive table in separate widget to navigate confirmed points
         plane_slider_groupbox = QGroupBox("(Clipping) Plane Sliders")
         plane_sliders = PlaneSliderWidget(self.viewer)

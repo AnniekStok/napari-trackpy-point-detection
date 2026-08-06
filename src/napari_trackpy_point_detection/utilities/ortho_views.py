@@ -1,15 +1,12 @@
 import inspect
 
-import napari_orthogonal_views.ortho_view_widget as ov_widget
-import numpy as np
-from matplotlib.colors import to_rgba
 from napari import Viewer
-from napari.layers import Labels, Layer, Points, Shapes
-from napari.utils.notifications import show_info
+from napari.layers import Points
 from napari_orthogonal_views.ortho_view_manager import (  # noqa
     OrthoViewManager,
     _get_manager,
 )
+
 
 def get_property_names_from_class(layer_cls):
     """Return all property names for a Layer class."""
@@ -25,9 +22,9 @@ def get_property_names_from_class(layer_cls):
 
 sync_filters = {
     Points: {
-        # ``data`` must be excluded here and should be synced exclusively by the 
-        # coordinator in point_data_hook. If ``_sync_property`` also syncs it, too many 
-        # 'data' events get emitted that corrupt the table. 
+        # ``data`` must be excluded here and should be synced exclusively by the
+        # coordinator in point_data_hook. If ``_sync_property`` also syncs it, too many
+        # 'data' events get emitted that corrupt the table.
         "forward_exclude": {
             "data",
             "size",
@@ -137,8 +134,8 @@ def point_data_hook(orig_layer: Points, copied_layer: Points) -> None:
             with orig_layer.events.data.blocker():
                 orig_layer.data = copied_layer.data
 
-            # Resize the other ortho views before anything downstream reacts, before 
-            # re-imitting the data event, so that other reacting components get the 
+            # Resize the other ortho views before anything downstream reacts, before
+            # re-imitting the data event, so that other reacting components get the
             # updated array on time.
             for copy in state["copies"]:
                 if copy is not copied_layer:

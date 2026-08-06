@@ -1,6 +1,6 @@
-import warnings
 
-import dask.array as da
+import copy
+
 import napari
 import numpy as np
 import pandas as pd
@@ -8,13 +8,12 @@ from matplotlib.colors import to_rgba
 from napari.utils import CyclicLabelColormap, DirectLabelColormap
 from qtpy.QtCore import (
     QEvent,
+    QItemSelection,
     QItemSelectionModel,
     QModelIndex,
     QObject,
+    QSignalBlocker,
     Qt,
-    QTimer,
-    QItemSelection,
-    QSignalBlocker
 )
 from qtpy.QtGui import QColor, QPen
 from qtpy.QtWidgets import (
@@ -32,7 +31,6 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-import copy
 
 class NoSelectionHighlightDelegate(QStyledItemDelegate):
     """Prevents Qt from painting the default selection background,
@@ -216,8 +214,8 @@ class InteractiveTableWidget(QWidget):
         self._table_widget.setItemDelegate(delegate)
 
     def refresh(self):
-        
-        if self._layer is not None: 
+
+        if self._layer is not None:
             self._set_data()
 
             if self._sync_table_with_layer not in self._layer.events.data.callbacks:
@@ -375,7 +373,7 @@ class InteractiveTableWidget(QWidget):
 
         if self._deleting_points or event.action not in {"removed", "added", "changed"}:
             return
-    
+
         if event.action == "removed":
             indices = list(event.data_indices)
             self.df = self.df.drop(index = indices)
@@ -449,22 +447,20 @@ class InteractiveTableWidget(QWidget):
             return
 
         row = index.row()
-        spatial_columns = [c for c in ['z', 'y', 'x'] if c in self.df.keys()]
+        spatial_columns = [c for c in ['z', 'y', 'x'] if c in self.df]
 
         # Access by positional row (``.iloc``) rather than by index label: the table shows
         # the dataframe in row order, which need not match the index labels (e.g. after a
         # sort, or if the dataframe carries non-contiguous labels).
-        spatial_coords = [
+        location = [
             self.df[col].iloc[row] for col in spatial_columns
         ]
-
-        location = [c for c in spatial_coords]
 
         if 't' in self.df:
             location.insert(0, int(self.df['t'].iloc[row]))
 
         # ``self.df`` stores the point coordinates in layer (data) space, while
-        # ``dims.point`` and ``camera.center`` are expressed in world coordinates. 
+        # ``dims.point`` and ``camera.center`` are expressed in world coordinates.
         world_location = self._layer.data_to_world(location)
 
         # Layer dimensions are right-aligned with the world dimensions, so only fill in
@@ -475,7 +471,6 @@ class InteractiveTableWidget(QWidget):
 
         # Center the main viewer and each orthogonal view on the point when it is out of
         # view there.
-
         corner_coordinates = self._layer.corner_pixels
 
         # ``dims.displayed`` are world axes, while ``corner_pixels`` and ``data_location``
@@ -513,7 +508,7 @@ class InteractiveTableWidget(QWidget):
     def _update_selection(self, event=None):
         """Select the corresponding table 
         rows when points are selected in napari."""
-                   
+
         if self._updating_selection:
             return
 
@@ -539,7 +534,7 @@ class InteractiveTableWidget(QWidget):
             index = model.index(row, 0)
             selection.select(index, index)
 
-        # Block table selection signals while updating 
+        # Block table selection signals while updating
         with QSignalBlocker(selection_model):
             selection_model.clearSelection()
             selection_model.select(

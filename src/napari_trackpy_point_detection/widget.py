@@ -48,8 +48,13 @@ class PointDetection(QWidget):
         plane_slider_layout.addWidget(plane_sliders)
         plane_slider_groupbox.setLayout(plane_slider_layout)
         self.table_widget = InteractiveTableWidget(self.selection_widget.points, self.viewer)
+
+        # measurements are added as extra columns to the interactive table
+        self.measure_widget = MeasureWidget(self.viewer, self.table_widget)
+
         tab2_widget_layout = QVBoxLayout()
         tab2_widget_layout.addWidget(plane_slider_groupbox)
+        tab2_widget_layout.addWidget(self.measure_widget)
         tab2_widget_layout.addWidget(self.table_widget)
         tab2_widget = QWidget()
         tab2_widget.setLayout(tab2_widget_layout)
@@ -80,13 +85,6 @@ class PointDetection(QWidget):
             self.trackpy_widget.df, self.trackpy_widget.intensity_layer
         )
 
-    def _update_measurements(self):
-        """Updates the points layer in the measurements widget"""
-
-        self.measurements_widget._update(
-            self.selection_widget.points, self.trackpy_widget.df
-        )
-
     def _finalize_trackpy_points(self):
         """Accept this points layer and move on the to the second step where points can manually be edited"""
 
@@ -100,5 +98,10 @@ class PointDetection(QWidget):
             self.selection_widget.filtered_df
         ).reset_index(drop=True)
         self.table_widget.refresh()
+
+        # let the measure widget pick up the finalized points layer, and preselect the
+        # layer the points were detected on
+        self.measure_widget.refresh(self.trackpy_widget.intensity_layer)
+
         self.tab_widget.setCurrentIndex(1)
 

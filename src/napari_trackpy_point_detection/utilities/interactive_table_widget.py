@@ -129,6 +129,7 @@ class InteractiveTableWidget(QWidget):
         self._updating_selection = False
         self._deleting_points = False
         self._selection_connected = False
+        self._region_colormap = None  # colors the rows by region, if measured
 
         self._set_data()
 
@@ -263,6 +264,8 @@ class InteractiveTableWidget(QWidget):
         self._table_widget.setRowCount(n_rows)
         self._table_widget.setColumnCount(n_cols)
 
+        row_colors = self._region_row_colors()
+
         for col_idx, column in enumerate(self.df.columns):
             self._table_widget.setHorizontalHeaderItem(
                 col_idx, QTableWidgetItem(column)
@@ -271,11 +274,101 @@ class InteractiveTableWidget(QWidget):
             for row_idx, value in enumerate(self.df[column]):
                 item = QTableWidgetItem(str(value))
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+
+                colors = row_colors[row_idx]
+                if colors is not None:
+                    background, foreground = colors
+                    item.setBackground(background)
+                    item.setForeground(foreground)
+
                 self._table_widget.setItem(row_idx, col_idx, item)
 
         self._table_widget.setItemDelegate(
             FloatDelegate(3, self._table_widget)
         )
+
+    def _region_row_colors(self) -> list[tuple[QColor, QColor] | None]:
+        """Background and text color for each row, from the regions layer colormap.
+
+        Returns:
+            list: (background, foreground) per row, or None for rows that keep the
+            default colors: every row when no regions were measured, and points that do
+            not fall in any region (label 0, which the colormap maps to transparent).
+        """
+
+        if self._region_colormap is None or "region" not in self.df.columns:
+            return [None] * len(self.df)
+
+        row_colors = []
+        for label in self.df["region"]:
+            if pd.isna(label):
+                row_colors.append(None)
+                continue
+
+            red, green, blue, alpha = to_rgba(
+                np.atleast_2d(self._region_colormap.map(int(label)))[0]
+            )
+            if alpha == 0:  # not inside any region
+                row_colors.append(None)
+                continue
+
+            # Keep the text readable on both light and dark region colors.
+            luminance = 0.299 * red + 0.587 * green + 0.114 * blue
+            row_colors.append(
+                (
+                    QColor(int(red * 255), int(green * 255), int(blue * 255)),
+                    QColor(Qt.black) if luminance > 0.5 else QColor(Qt.white),
+                )
+            )
+
+        return row_colors
+
+    def add_measurements(
+        self,
+        measurements: dict[str, np.ndarray],
+        region_colormap: "CyclicLabelColormap | DirectLabelColormap | None" = None,
+        drop: tuple[str, ...] = (),
+    ) -> None:
+        """Add (or replace) measurement columns for the points in the table.
+
+        Args:
+            measurements (dict[str, np.ndarray]): column name -> one value per point, in
+                the order in which the points appear in the layer.
+            region_colormap: colormap of the regions layer the 'region' column was
+                measured in, used to give each row the color of its region.
+            drop (tuple[str, ...]): columns to remove, e.g. a 'region' column that is no
+                longer measured.
+        """
+
+        if self._layer is None or self.df.empty:
+            return
+
+        self._region_colormap = region_colormap
+        self.df = self.df.drop(columns=list(drop), errors="ignore")
+
+        for name, values in measurements.items():
+            # The dataframe index labels are the positional indices of the points in the
+            # layer, while the row order can differ from it (e.g. after sorting the
+            # table), so label the values the same way and let pandas align them.
+            self.df[name] = pd.Series(np.asarray(values), index=range(len(values)))
+
+        self._set_data()
+
+    def measurement_column(self, name: str) -> np.ndarray | None:
+        """Return a table column in the order of the points in the layer.
+
+        Args:
+            name (str): name of the column.
+
+        Returns:
+            np.ndarray | None: one value per point (NaN where the table has no value for
+            a point), or None if the column is not in the table.
+        """
+
+        if self._layer is None or name not in self.df.columns:
+            return None
+
+        return self.df[name].reindex(range(len(self._layer.data))).to_numpy()
 
     def _sync_table_with_layer(self, event):
         """Synchronize the table when points are added, changed, or removed."""

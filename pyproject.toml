@@ -30,7 +30,7 @@ dependencies = [
     "napari >= 0.6.2",
     "numpy >= 2",
     "pandas >= 3.0.0",
-    "napari-orthogonal-views >= 0.2.3",
+    "napari-orthogonal-views >= 0.3.0",
     "trackpy >= 0.7",
     "superqt >= 0.8.0",
     "napari-plane-sliders @ git+https://github.com/AnniekStok/napari-plane-sliders.git"

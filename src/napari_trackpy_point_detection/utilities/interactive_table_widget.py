@@ -286,12 +286,10 @@ class InteractiveTableWidget(QWidget):
         )
 
     def _region_row_colors(self) -> list[tuple[QColor, QColor] | None]:
-        """Background and text color for each row, from the regions layer colormap.
+        """Return the (background, text) color per row, from the regions colormap.
 
-        Returns:
-            list: (background, foreground) per row, or None for rows that keep the
-            default colors: every row when no regions were measured, and points that do
-            not fall in any region (label 0, which the colormap maps to transparent).
+        Rows keep their default colors (None) when no regions were measured, and for
+        points outside any region (label 0, which the colormap maps to transparent).
         """
 
         if self._region_colormap is None or "region" not in self.df.columns:
@@ -333,7 +331,7 @@ class InteractiveTableWidget(QWidget):
             measurements (dict[str, np.ndarray]): column name -> one value per point, in
                 the order in which the points appear in the layer.
             region_colormap: colormap of the regions layer the 'region' column was
-                measured in, used to give each row the color of its region.
+                measured in, used to color each row by its region.
             drop (tuple[str, ...]): columns to remove, e.g. a 'region' column that is no
                 longer measured.
         """
@@ -353,15 +351,8 @@ class InteractiveTableWidget(QWidget):
         self._set_data()
 
     def measurement_column(self, name: str) -> np.ndarray | None:
-        """Return a table column in the order of the points in the layer.
-
-        Args:
-            name (str): name of the column.
-
-        Returns:
-            np.ndarray | None: one value per point (NaN where the table has no value for
-            a point), or None if the column is not in the table.
-        """
+        """Return column ``name`` in the order of the points in the layer, with NaN for
+        points the table has no value for, or None if the column does not exist."""
 
         if self._layer is None or name not in self.df.columns:
             return None

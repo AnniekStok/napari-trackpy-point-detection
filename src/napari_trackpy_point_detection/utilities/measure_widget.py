@@ -15,33 +15,9 @@ from .interactive_table_widget import InteractiveTableWidget
 from .layer_dropdown import LayerDropdown
 
 
-def _sample_values(image, coordinates: np.ndarray) -> np.ndarray:
-    """Read a single value out of ``image`` for each point.
-
-    Args:
-        image (np.ndarray | dask.array.Array): array to read from.
-        coordinates (np.ndarray): (n_points, ndim) integer index coordinates.
-
-    Returns:
-        np.ndarray: one value per point.
-    """
-
-    index = tuple(coordinates.T)
-
-    # Dask does not support pointwise fancy indexing over multiple axes the way numpy
-    # does, but offers ``vindex`` for exactly this.
-    values = image.vindex[index] if hasattr(image, "vindex") else image[index]
-
-    return np.asarray(values)
-
-
 class MeasureWidget(QWidget):
     """Controls to measure image intensities at the detected points, optionally per
-    region.
-
-    The results are added as extra columns to the interactive table, which is the single
-    place where the points and everything measured on them is shown.
-    """
+    region. The results are added as extra columns to the interactive table."""
 
     def __init__(
         self, viewer: napari.Viewer, table_widget: InteractiveTableWidget
@@ -59,6 +35,7 @@ class MeasureWidget(QWidget):
         self.intensity_layer_dropdown.layer_changed.connect(
             self._update_intensity_layer
         )
+        self.intensity_layer_dropdown.setMaximumWidth(200)
 
         self.use_regions_checkbox = QCheckBox("Measure in regions?")
         self.use_regions_checkbox.setChecked(False)
@@ -115,12 +92,8 @@ class MeasureWidget(QWidget):
     def refresh(
         self, intensity_layer: "napari.layers.Image | None" = None
     ) -> None:
-        """Pick up the points layer that the table is currently showing.
-
-        Args:
-            intensity_layer (napari.layers.Image): optional layer to preselect in the
-                intensity dropdown, e.g. the layer the points were detected on.
-        """
+        """Pick up the points layer that the table is currently showing, optionally
+        preselecting ``intensity_layer`` (e.g. the layer the points were detected on)."""
 
         if (
             intensity_layer is not None
@@ -173,19 +146,24 @@ class MeasureWidget(QWidget):
 
         self._check_activation()
 
-    def _point_coordinates(self, layer: napari.layers.Layer) -> np.ndarray:
-        """Convert the points to integer index coordinates into ``layer.data``.
+    def _fits_points(self, layer: napari.layers.Layer) -> bool:
+        """Check that ``layer`` can be indexed with the point coordinates."""
 
-        The points and the layer that is measured can carry a different scale and
-        translate, so the points are taken to world coordinates first. Rotation, shear
-        and affine transforms are not taken into account.
+        if layer.ndim > self.points.ndim:
+            show_info(
+                f"Cannot measure in '{layer.name}': it has more dimensions "
+                f"({layer.ndim}) than the points ({self.points.ndim})."
+            )
+            return False
 
-        Args:
-            layer (napari.layers.Layer): the layer to index into.
+        return True
 
-        Returns:
-            np.ndarray: (n_points, layer.ndim) integer coordinates, clipped to the shape
-            of the layer's data.
+    def _sample(self, layer: napari.layers.Layer) -> np.ndarray:
+        """Read one value from ``layer`` for each point.
+
+        The points and the measured layer can carry a different scale and translate, so
+        the points are taken to world coordinates first. Rotation, shear and affine
+        transforms are not taken into account.
         """
 
         points = np.asarray(self.points.data)
@@ -200,12 +178,17 @@ class MeasureWidget(QWidget):
         coordinates = (world - np.asarray(layer.translate)) / np.asarray(
             layer.scale
         )
-
         coordinates = np.round(coordinates).astype(int)
 
-        # Points may sit just outside the array (e.g. after moving one to the very edge),
-        # which would raise on indexing.
-        return np.clip(coordinates, 0, np.asarray(layer.data.shape) - 1)
+        # Points can sit just outside the array (e.g. after moving one to the very
+        # edge), which would raise on indexing.
+        data = layer.data
+        index = tuple(np.clip(coordinates, 0, np.asarray(data.shape) - 1).T)
+
+        # Dask has no pointwise fancy indexing over multiple axes, but offers ``vindex``.
+        values = data.vindex[index] if hasattr(data, "vindex") else data[index]
+
+        return np.asarray(values)
 
     def _measure(self) -> None:
         """Measure the intensity at each point, optionally together with the region it
@@ -214,31 +197,18 @@ class MeasureWidget(QWidget):
         if self.points is None or self.intensity_layer is None:
             return
 
-        if self.intensity_layer.ndim > self.points.ndim:
-            show_info(
-                f"Cannot measure in '{self.intensity_layer.name}': it has more "
-                f"dimensions ({self.intensity_layer.ndim}) than the points "
-                f"({self.points.ndim})."
-            )
+        if not self._fits_points(self.intensity_layer):
             return
 
-        measurements = {
-            "intensity": _sample_values(
-                self.intensity_layer.data,
-                self._point_coordinates(self.intensity_layer),
-            )
-        }
-
+        measurements = {"intensity": self._sample(self.intensity_layer)}
         colormap = None
         drop = ("region",)  # a region measured earlier no longer applies
 
         if self.use_regions_checkbox.isChecked() and self.regions is not None:
             regions = self._regions_as_labels()
-            if regions is None:
+            if not self._fits_points(regions):
                 return
-            measurements["region"] = _sample_values(
-                regions.data, self._point_coordinates(regions)
-            )
+            measurements["region"] = self._sample(regions)
             # give each table row the color of the region it falls in
             colormap = regions.colormap
             drop = ()
@@ -248,12 +218,11 @@ class MeasureWidget(QWidget):
         )
         self._update_visibility()
 
-    def _regions_as_labels(self) -> "napari.layers.Labels | None":
+    def _regions_as_labels(self) -> "napari.layers.Labels":
         """Return the regions as a Labels layer, rasterizing a Shapes layer if needed.
 
-        The rasterized version is added to the viewer (and replaces the shapes layer as
-        the selected regions layer) so it can be inspected and reused for the next
-        measurement.
+        The rasterized version is added to the viewer and replaces the shapes layer as
+        the selected regions layer, so it is reused for the next measurement.
         """
 
         if isinstance(self.regions, napari.layers.Shapes):
@@ -267,14 +236,6 @@ class MeasureWidget(QWidget):
             )
             self.regions = labels
             self.regions_dropdown.setCurrentText(labels.name)
-
-        if self.regions.ndim > self.points.ndim:
-            show_info(
-                f"Cannot measure in regions of '{self.regions.name}': it has more "
-                f"dimensions ({self.regions.ndim}) than the points "
-                f"({self.points.ndim})."
-            )
-            return None
 
         return self.regions
 

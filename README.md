@@ -7,7 +7,7 @@
 [![codecov](https://codecov.io/gh/AnniekStok/napari-trackpy-point-detection/branch/main/graph/badge.svg)](https://codecov.io/gh/AnniekStok/napari-trackpy-point-detection)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-trackpy-point-detection)](https://napari-hub.org/plugins/napari-trackpy-point-detection)
 
-A Napari plugin for detecting objects in 2D, 2D + time, 3D, and 3D + time, using the locate function from [TrackPy](https://pypi.org/project/trackpy/) and works best on objects that have a similar size and smooth intensity profile. Detected points can be filtered afterwards based on size and intensity. When detecting 3D objects in very crowded samples, the 3D 'Plane' view may make it easier to see the detected objects. Point intensities on image layers can be measured and visualized in a napari-skimage-regionprops inspired table widget, optionally per region. 
+A Napari plugin for detecting objects in 2D, 2D + time, 3D, and 3D + time, using the locate function from [TrackPy](https://pypi.org/project/trackpy/), with helper tools to visualize and correct the detections manually.
 
 ----------------------------------
 
@@ -23,17 +23,10 @@ To install latest development version :
 
 ## Usage
 
-Choose an estimated diameter in xy (and optionally z) (this must be an odd integer) and an estimated distance between objects. When your data is 3D but you leave the 'Use Z dimension' checkbox unticked, the third dimension will be treated as time, meaning that objects are detected frame by frame. The 'Intensity percentile threshold' parameter can be used to filter out dimmer objects that are below set intensity percentile. 
+Choose an estimated diameter in xy (and optionally z) (this must be an odd integer, in pixels) and an estimated distance between objects. When your data is 3D but you leave the 'Use Z dimension' checkbox unticked, the third dimension will be treated as time, meaning that objects are detected frame by frame. The 'Intensity percentile threshold' parameter can be used to filter out dimmer objects that are below set intensity percentile. 
+Detected points are added to an interactive table that allows selection and deletion of points. Missing points can be added via the 'add' button on the Points layer. Optionally, you can display the orthogonal views, or link the Points layer to the Image layer and display a (clipping) plane to help evaluate the detections. Results can be copied to the clipboard or exported to CSV. 
 
-#### Detection of 2D objects over time
-![](instructions/trackpy_locate_2D_time.gif)
-
-#### Detection of 3D objects
-![](instructions/trackpy_locate_3D.gif)
-
-### Measuring intensity at point detections, with optional regions derived from Shapes or Labels layers
-![](instructions/point_detection_measure_regions.gif)
-
+![](instructions/trackpy_point_detection.gif)
 
 ## Contributing
 
@@ -66,3 +59,6 @@ If you encounter any problems, please [file an issue] along with a detailed desc
 [tox]: https://tox.readtheinstructions.io/en/latest/
 [pip]: https://pypi.org/project/pip/
 [PyPI]: https://pypi.org/
+
+## References
+Allan, D. B., Caswell, T., Keim, N. C., van der Wel, C. M.& Verweij, R. W. (2025). soft-matter/trackpy: v0.7 (Version v0.7) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.16089574

@@ -172,6 +172,7 @@ class SelectionWidget(QWidget):
 
     def _confirm_points(self):
         self.points.face_color = 'red'
+        self.points.current_face_color = 'red'
         self.points.out_of_slice_display = True
         self.points_updated.emit()
         self.confirm_btn.setEnabled(False)

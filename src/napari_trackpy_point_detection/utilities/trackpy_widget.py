@@ -72,7 +72,7 @@ class TrackpyWidget(QWidget):
         self.z_dim_cb.stateChanged.connect(self._toggle_z)
 
         # Add trackpy detection configuration.
-        diameter_settings = QGroupBox("Object diameter (odd number)")
+        diameter_settings = QGroupBox("Object diameter (odd number, pixels)")
         diameter_settings_layout = QVBoxLayout()
 
         xy_diameter_layout = QHBoxLayout()
@@ -87,6 +87,7 @@ class TrackpyWidget(QWidget):
         xy_label.setMinimumWidth(50)
         xy_diameter_layout.addWidget(xy_label)
         xy_diameter_layout.addWidget(self.diameter_spinbox_xy)
+        xy_diameter_layout.setContentsMargins(0, 0, 0, 0)
         xy_diameter_widget.setLayout(xy_diameter_layout)
 
         diameter_settings_layout.addWidget(xy_diameter_widget)
@@ -103,6 +104,7 @@ class TrackpyWidget(QWidget):
 
         z_diameter_layout = QHBoxLayout()
         z_diameter_layout.addWidget(z_label)
+        z_diameter_layout.setContentsMargins(0, 0, 0, 0)
         z_diameter_layout.addWidget(self.diameter_spinbox_z)
 
         self.z_diameter_widget = QWidget()
@@ -113,7 +115,7 @@ class TrackpyWidget(QWidget):
         diameter_settings.setLayout(diameter_settings_layout)
 
         # settings for separation
-        separation_settings = QGroupBox("Object separation")
+        separation_settings = QGroupBox("Object separation (pixels)")
         separation_settings_layout = QVBoxLayout()
 
         xy_label = QLabel("XY")
@@ -127,6 +129,7 @@ class TrackpyWidget(QWidget):
         xy_separation_layout = QHBoxLayout()
         xy_separation_layout.addWidget(xy_label)
         xy_separation_layout.addWidget(self.separation_spinbox_xy)
+        xy_separation_layout.setContentsMargins(0, 0, 0, 0)
         xy_separation_widget.setLayout(xy_separation_layout)
 
         separation_settings_layout.addWidget(xy_separation_widget)
@@ -143,6 +146,7 @@ class TrackpyWidget(QWidget):
         z_separation_layout = QHBoxLayout()
         z_separation_layout.addWidget(z_label)
         z_separation_layout.addWidget(self.separation_spinbox_z)
+        z_separation_layout.setContentsMargins(0, 0, 0, 0)
         self.z_separation_widget.setLayout(z_separation_layout)
 
         # assemble widgets in layout)
@@ -162,31 +166,35 @@ class TrackpyWidget(QWidget):
         percentile_settings.setLayout(percentile_settings_layout)
 
         # Downsample and blur to speed up detections
-        downsample_settings = QGroupBox("Optional internal downsampling")
+        downsample_settings = QGroupBox("Optional downsampling and gaussian blur")
         downsample_settings.setToolTip("Optionally, the data can be downscaled and/or a gaussian blur can be applied to speed up or improve the detection process. Downsampling occurs internally and detected points will be placed back in the original dimensions. A value of 1 will not downsample or apply a blur")
         downsample_settings_layout = QVBoxLayout()
 
-        downsample_label_xy = QLabel("Downsampling factor XY")
+        downsample_label_xy = QLabel("XY")
         self.xy_downsample = QSpinBox()
         self.xy_downsample.setMinimum(1)
         self.xy_downsample.setMaximum(10)
         self.xy_downsample.setValue(4)
+        self.xy_downsample.setToolTip("Downsampling factor in XY. A value of 1 will not downsample.")
 
         downsample_xy_widget = QWidget()
         downsample_xy_layout = QHBoxLayout()
         downsample_xy_layout.addWidget(downsample_label_xy)
         downsample_xy_layout.addWidget(self.xy_downsample)
+        downsample_xy_layout.setContentsMargins(0, 0, 0, 0)
         downsample_xy_widget.setLayout(downsample_xy_layout)
 
-        downsample_label_z = QLabel("Downsampling factor Z")
+        downsample_label_z = QLabel("Z")
         self.z_downsample = QSpinBox()
         self.z_downsample.setMinimum(1)
         self.z_downsample.setMaximum(10)
         self.z_downsample.setValue(2)
+        self.z_downsample.setToolTip("Downsampling factor in Z. A value of 1 will not downsample.")
 
         z_downsample_layout = QHBoxLayout()
         z_downsample_layout.addWidget(downsample_label_z)
         z_downsample_layout.addWidget(self.z_downsample)
+        z_downsample_layout.setContentsMargins(0, 0, 0, 0)
         self.z_downsample_widget = QWidget()
         self.z_downsample_widget.setLayout(z_downsample_layout)
 
@@ -195,11 +203,13 @@ class TrackpyWidget(QWidget):
         self.xy_sigma.setMinimum(1)
         self.xy_sigma.setMaximum(10)
         self.xy_sigma.setValue(2)
+        self.xy_sigma.setToolTip("Gaussian blur sigma in XY. A value of 1 will not apply a blur")
 
         sigma_xy_widget = QWidget()
         sigma_xy_layout = QHBoxLayout()
         sigma_xy_layout.addWidget(sigma_label_xy)
         sigma_xy_layout.addWidget(self.xy_sigma)
+        sigma_xy_layout.setContentsMargins(0, 0, 0, 0)
         sigma_xy_widget.setLayout(sigma_xy_layout)
 
         sigma_label_z = QLabel("Sigma Z")
@@ -207,10 +217,12 @@ class TrackpyWidget(QWidget):
         self.z_sigma.setMinimum(1)
         self.z_sigma.setMaximum(10)
         self.z_sigma.setValue(1)
+        self.z_sigma.setToolTip("Gaussian blur sigma in Z. A value of 1 will not apply a blur")
 
         z_sigma_layout = QHBoxLayout()
         z_sigma_layout.addWidget(sigma_label_z)
         z_sigma_layout.addWidget(self.z_sigma)
+        z_sigma_layout.setContentsMargins(0, 0, 0, 0)
         self.z_sigma_widget = QWidget()
         self.z_sigma_widget.setLayout(z_sigma_layout)
 

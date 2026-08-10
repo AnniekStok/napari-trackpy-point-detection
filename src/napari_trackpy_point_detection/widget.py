@@ -43,6 +43,8 @@ class PointDetection(QWidget):
         tab1_widget_layout = QVBoxLayout()
         tab1_widget_layout.addWidget(self.trackpy_widget)
         tab1_widget_layout.addWidget(self.selection_widget)
+        tab1_widget.setMaximumWidth(400)
+
         tab1_widget.setLayout(tab1_widget_layout)
 
         # Create an interactive table in separate widget to navigate confirmed points
@@ -62,6 +64,7 @@ class PointDetection(QWidget):
         tab2_widget_layout.addWidget(self.table_widget)
         tab2_widget = QWidget()
         tab2_widget.setLayout(tab2_widget_layout)
+        tab2_widget.setMaximumWidth(400)
 
         # initialize ortho views
         initialize_ortho_views(self.viewer)
@@ -81,6 +84,7 @@ class PointDetection(QWidget):
         main_layout = QVBoxLayout()
         main_layout.addWidget(scroll_area)
         self.setLayout(main_layout)
+        self.setMaximumWidth(400)
 
     def _update_points(self):
         """Call the selection widget to update the points and sliders based on the data calculated in the trackpy_widget class"""

@@ -40,7 +40,7 @@ class MeasureWidget(QWidget):
         self.use_regions_checkbox = QCheckBox("Measure in regions?")
         self.use_regions_checkbox.setChecked(False)
         self.use_regions_checkbox.clicked.connect(self._check_activation)
-        self.hide_points_checkbox = QCheckBox("Hide points outside regions?")
+        self.hide_points_checkbox = QCheckBox("Hide points\noutside regions?")
         self.hide_points_checkbox.setChecked(False)
         self.hide_points_checkbox.setEnabled(False)
         self.hide_points_checkbox.clicked.connect(self._update_visibility)

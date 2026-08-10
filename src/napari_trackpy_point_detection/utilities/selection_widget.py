@@ -163,7 +163,7 @@ class SelectionWidget(QWidget):
             self.points = self.viewer.add_points(
                 name="Detected objects",
                 data=coordinates,
-                face_color="cyan",
+                face_color="magenta",
                 opacity=0.5,
                 scale=self.intensity_layer.scale,
             )

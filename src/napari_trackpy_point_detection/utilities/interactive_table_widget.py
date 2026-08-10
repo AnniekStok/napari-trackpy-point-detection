@@ -129,6 +129,10 @@ class InteractiveTableWidget(QWidget):
         self._selection_connected = False
         self._region_colormap = None  # colors the rows by region, if measured
 
+        # Created before the first ``_set_data`` call, which keeps it up to date.
+        self.point_count_label = QLabel()
+        self.point_count_label.setStyleSheet("color: yellow;")
+
         self._set_data()
 
         self.ascending = (
@@ -172,6 +176,7 @@ class InteractiveTableWidget(QWidget):
         main_layout.addLayout(button_layout)
         main_layout.addLayout(delete_undo_layout)
         main_layout.addWidget(label)
+        main_layout.addWidget(self.point_count_label)
         main_layout.addWidget(self._table_widget)
         self.setLayout(main_layout)
         self.setMinimumHeight(300)
@@ -244,6 +249,10 @@ class InteractiveTableWidget(QWidget):
     def _set_data(self, column_index: int | None = None) -> None:
         """Set the content of the table from the layer's properties."""
 
+        # Every change to the points (adding, deleting, undoing, measuring, or a new
+        # layer) ends up here, so this is the one place the count has to be kept in sync.
+        self._update_point_count()
+
         if self._layer is None:
             return
 
@@ -284,6 +293,12 @@ class InteractiveTableWidget(QWidget):
         self._table_widget.setItemDelegate(
             FloatDelegate(3, self._table_widget)
         )
+
+    def _update_point_count(self) -> None:
+        """Show how many points the table, and with it the layer, is holding."""
+
+        n_points = 0 if self._layer is None else len(self.df)
+        self.point_count_label.setText(f"Number of points: {n_points}")
 
     def _region_row_colors(self) -> list[tuple[QColor, QColor] | None]:
         """Return the (background, text) color per row, from the regions colormap.

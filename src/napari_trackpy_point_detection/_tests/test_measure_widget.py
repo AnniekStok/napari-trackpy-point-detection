@@ -193,6 +193,22 @@ def test_measurements_stay_with_their_point_when_sorted(widgets, regions):
     assert list(table.df["intensity"]) == expected_intensities()[::-1]
 
 
+def test_point_count_label_stays_up_to_date(widgets):
+    _, table, _ = widgets
+    assert table.point_count_label.text() == "Number of points: 3"
+
+    table._table_widget.selectRow(0)
+    table._delete_points()
+    assert table.point_count_label.text() == "Number of points: 2"
+
+    table._undo_delete_points()
+    assert table.point_count_label.text() == "Number of points: 3"
+
+    # a point added on the layer itself, e.g. in the viewer or an ortho view
+    table._layer.data = np.vstack([table._layer.data, [[1.0, 5.0, 5.0]]])
+    assert table.point_count_label.text() == "Number of points: 4"
+
+
 def test_measurement_column_follows_the_layer_order(widgets, regions):
     _, table, measure = widgets
     measure._measure()
